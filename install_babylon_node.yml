@@ -7,7 +7,7 @@
       prompt: "Enter the node name"
       private: no
   vars_files:
-    - vars/seeds.yml
+  - vars/seeds.yml
     
   tasks:
     - name: Update and Upgrade APT Packages
@@ -32,18 +32,20 @@
         remote_src: yes
         creates: "/usr/local/go/bin/go"
 
+    
     - name: Update .bash_profile with Go paths
-      ansible.builtin.lineinfile:
-        path: "/root/.bash_profile"
-        line: 'export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin'
-        create: yes
+      lineinfile:
+          path: "/root/.bash_profile"
+          line: 'export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin'
+          create: yes
+    
 
     - name: Clone Babylon Repository and Build
       block:
         - ansible.builtin.git:
             repo: "https://github.com/babylonchain/babylon.git"
             dest: "~/babylon"
-            version: "v0.8.6"
+            version: "v0.8.5"
             force: yes
 
         - name: build babylon project
@@ -51,14 +53,14 @@
             cmd: "make build"
             chdir: "~/babylon"
           environment:
-            PATH: "/usr/local/go/bin:{{ ansible_env.PATH }}"
-            GOPATH: "{{ ansible_env.HOME }}/go"
-            GOMODCACHE: "{{ ansible_env.HOME }}/go/pkg/mod"
+              PATH: "/usr/local/go/bin:{{ ansible_env.PATH }}"
+              GOPATH: "{{ ansible_env.HOME }}/go"
+              GOMODCACHE: "{{ ansible_env.HOME }}/go/pkg/mod"
 
         - name: Copy babylond to bin directory
           ansible.builtin.copy:
-            src: "~/babylon/build/babylond"
-            dest: "/usr/local/bin/babylond"
+            src: ~/babylon/build/babylond
+            dest: /usr/local/bin/babylond
             mode: '0755'
             remote_src: yes
             
@@ -83,6 +85,7 @@
         path: "{{ ansible_env.HOME }}/.babylond/config/config.toml"
         regexp: '^\s*seeds =.*'
         line: 'seeds = "{{ seeds_list }}"'
+      
 
     - name: Set persistent_peers in config.toml
       ansible.builtin.lineinfile:
@@ -110,6 +113,7 @@
         - regexp: '^\s*minimum-gas-prices\s*=.*'
           line: 'minimum-gas-prices = "0.00001ubbn"'
 
+
     - name: Download the latest Babylon snapshot from KJNodes
       ansible.builtin.shell:
         cmd: "wget https://snapshots.kjnodes.com/babylon-testnet/snapshot_latest.tar.lz4 -O /root/.babylond/snapshot_latest.tar.lz4"
@@ -129,9 +133,10 @@
         cp -f /usr/local/bin/babylond ~/.babylond/cosmovisor/genesis/bin/babylond
         cp -f /root/go/bin/cosmovisor /usr/local/bin/
       environment:
-        PATH: "/usr/local/go/bin:{{ ansible_env.PATH }}"
-        GOPATH: "{{ ansible_env.HOME }}/go"
-        GOMODCACHE: "{{ ansible_env.HOME }}/go/pkg/mod"
+              PATH: "/usr/local/go/bin:{{ ansible_env.PATH }}"
+              GOPATH: "{{ ansible_env.HOME }}/go"
+              GOMODCACHE: "{{ ansible_env.HOME }}/go/pkg/mod"
+  
 
     - name: Setup Babylon Node Systemd Service
       template:
@@ -139,8 +144,8 @@
         dest: /etc/systemd/system/babylon-node.service
 
     - name: Enable and Start Babylon Service
-      ansible.builtin.systemd:
+      systemd:
         name: babylon-node.service
         enabled: yes
         state: started
-        daemon_reload: yes
+        daemon_reload: yes            
