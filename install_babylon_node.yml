@@ -7,7 +7,7 @@
       prompt: "Enter the node name"
       private: no
   vars_files:
-  - vars/seeds.yml
+    - vars/seeds.yml
     
   tasks:
     - name: Update and Upgrade APT Packages
@@ -32,13 +32,11 @@
         remote_src: yes
         creates: "/usr/local/go/bin/go"
 
-    
     - name: Update .bash_profile with Go paths
-      lineinfile:
-          path: "/root/.bash_profile"
-          line: 'export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin'
-          create: yes
-    
+      ansible.builtin.lineinfile:
+        path: "/root/.bash_profile"
+        line: 'export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin'
+        create: yes
 
     - name: Clone Babylon Repository and Build
       block:
@@ -53,14 +51,14 @@
             cmd: "make build"
             chdir: "~/babylon"
           environment:
-              PATH: "/usr/local/go/bin:{{ ansible_env.PATH }}"
-              GOPATH: "{{ ansible_env.HOME }}/go"
-              GOMODCACHE: "{{ ansible_env.HOME }}/go/pkg/mod"
+            PATH: "/usr/local/go/bin:{{ ansible_env.PATH }}"
+            GOPATH: "{{ ansible_env.HOME }}/go"
+            GOMODCACHE: "{{ ansible_env.HOME }}/go/pkg/mod"
 
         - name: Copy babylond to bin directory
           ansible.builtin.copy:
-            src: ~/babylon/build/babylond
-            dest: /usr/local/bin/babylond
+            src: "~/babylon/build/babylond"
+            dest: "/usr/local/bin/babylond"
             mode: '0755'
             remote_src: yes
             
@@ -85,7 +83,6 @@
         path: "{{ ansible_env.HOME }}/.babylond/config/config.toml"
         regexp: '^\s*seeds =.*'
         line: 'seeds = "{{ seeds_list }}"'
-      
 
     - name: Set persistent_peers in config.toml
       ansible.builtin.lineinfile:
@@ -113,28 +110,13 @@
         - regexp: '^\s*minimum-gas-prices\s*=.*'
           line: 'minimum-gas-prices = "0.00001ubbn"'
 
-
-    - name: Retrieve the latest Babylon snapshot URL
-      ansible.builtin.uri:
-        url: "https://www.polkachu.com/testnets/babylon/snapshots"
-        return_content: yes
-      register: webpage_content
-
-    - name: Parse the snapshot URL
-      ansible.builtin.set_fact:
-        snapshot_url: "{{ webpage_content.content | regex_search('https://snapshots.polkachu.com/testnet-snapshots/babylon/babylon_[0-9]+\\.tar\\.lz4') }}"
-
-    - name: Download the snapshot with curl and show progress
-      ansible.builtin.command:
-       cmd: "curl -L {{ snapshot_url }} -o {{ ansible_env.HOME }}/.babylond/babylon_snapshot.tar.lz4 --progress-bar"
-      args:
-       executable: /bin/bash
-      register: curl_result
-      failed_when: curl_result.rc != 0
+    - name: Download the latest Babylon snapshot from KJNodes
+      ansible.builtin.shell:
+        cmd: "wget https://snapshots.kjnodes.com/babylon-testnet/snapshot_latest.tar.lz4 -O /root/.babylond/snapshot_latest.tar.lz4"
 
     - name: Extract the snapshot
       ansible.builtin.shell:
-        cmd: "lz4 -d {{ ansible_env.HOME }}/.babylond/babylon_snapshot.tar.lz4 | tar x -C {{ ansible_env.HOME }}/.babylond"
+        cmd: "lz4 -d /root/.babylond/snapshot_latest.tar.lz4 | tar x -C /root/.babylond"
         executable: /bin/bash
 
     - name: Install Cosmovisor
@@ -147,10 +129,9 @@
         cp -f /usr/local/bin/babylond ~/.babylond/cosmovisor/genesis/bin/babylond
         cp -f /root/go/bin/cosmovisor /usr/local/bin/
       environment:
-              PATH: "/usr/local/go/bin:{{ ansible_env.PATH }}"
-              GOPATH: "{{ ansible_env.HOME }}/go"
-              GOMODCACHE: "{{ ansible_env.HOME }}/go/pkg/mod"
-  
+        PATH: "/usr/local/go/bin:{{ ansible_env.PATH }}"
+        GOPATH: "{{ ansible_env.HOME }}/go"
+        GOMODCACHE: "{{ ansible_env.HOME }}/go/pkg/mod"
 
     - name: Setup Babylon Node Systemd Service
       template:
@@ -158,8 +139,8 @@
         dest: /etc/systemd/system/babylon-node.service
 
     - name: Enable and Start Babylon Service
-      systemd:
+      ansible.builtin.systemd:
         name: babylon-node.service
         enabled: yes
         state: started
-        daemon_reload: yes            
+        daemon_reload: yes
