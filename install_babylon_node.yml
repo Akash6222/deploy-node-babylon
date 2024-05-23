@@ -7,7 +7,7 @@
       prompt: "Enter the node name"
       private: no
   vars_files:
-  - vars/seeds.yml
+    - vars/seeds.yml
     
   tasks:
     - name: Update and Upgrade APT Packages
@@ -45,7 +45,7 @@
         - ansible.builtin.git:
             repo: "https://github.com/babylonchain/babylon.git"
             dest: "~/babylon"
-            version: "v0.8.5"
+            version: "v0.8.6"
             force: yes
 
         - name: build babylon project
@@ -148,4 +148,4 @@
         name: babylon-node.service
         enabled: yes
         state: started
-        daemon_reload: yes            
+        daemon_reload: yes
